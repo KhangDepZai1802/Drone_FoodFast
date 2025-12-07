@@ -1,0 +1,150 @@
+version: '3.8'
+
+services:
+  # ==========================================
+  # DATABASE (SQL SERVER)
+  # ==========================================
+  shared_db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: shared_db
+    environment:
+      - ACCEPT_EULA=Y
+      - SA_PASSWORD=Khangle123456
+      - MSSQL_PID=Developer
+    ports:
+      - "1444:1433"
+    volumes:
+      - mssql_data:/var/opt/mssql
+    networks:
+      - drone_network
+    healthcheck:
+      test: /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P Khangle123456 -Q "SELECT 1" -C || exit 1
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    command: >
+      bash -c "
+      /opt/mssql/bin/sqlservr &
+      echo 'Waiting for SQL Server to start...' &&
+      sleep 30 &&
+      /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P Khangle123456 -C -Q 'IF NOT EXISTS(SELECT * FROM sys.databases WHERE name = \"UserDB\") BEGIN CREATE DATABASE UserDB; END' &&
+      /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P Khangle123456 -C -Q 'IF NOT EXISTS(SELECT * FROM sys.databases WHERE name = \"ProductDB\") BEGIN CREATE DATABASE ProductDB; END' &&
+      /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P Khangle123456 -C -Q 'IF NOT EXISTS(SELECT * FROM sys.databases WHERE name = \"OrderDB\") BEGIN CREATE DATABASE OrderDB; END' &&
+      /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P Khangle123456 -C -Q 'IF NOT EXISTS(SELECT * FROM sys.databases WHERE name = \"PaymentDB\") BEGIN CREATE DATABASE PaymentDB; END' &&
+      wait
+      "
+
+  # ==========================================
+  # BACKEND SERVICES
+  # ==========================================
+  user_service:
+    build: ./user_service
+    container_name: user_service
+    environment:
+      - DATABASE_URL=mssql+pyodbc://sa:Khangle123456@shared_db:1433/UserDB?driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes
+      - JWT_SECRET=secret_key_drone_project
+    ports:
+      - "8001:8000"
+    networks:
+      - drone_network
+    depends_on:
+      shared_db:
+        condition: service_healthy
+
+  product_service:
+    build: ./product_service
+    container_name: product_service
+    environment:
+      - DATABASE_URL=mssql+pyodbc://sa:Khangle123456@shared_db:1433/ProductDB?driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes
+      - USER_SERVICE_URL=http://user_service:8000
+      - JWT_SECRET=secret_key_drone_project
+    ports:
+      - "8002:8000"
+    volumes:
+      - product_images:/app/static/images
+    networks:
+      - drone_network
+    depends_on:
+      shared_db:
+        condition: service_healthy
+
+  order_service:
+    build: ./order_service
+    container_name: order_service
+    environment:
+      - DATABASE_URL=mssql+pyodbc://sa:Khangle123456@shared_db:1433/OrderDB?driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes
+      - USER_SERVICE_URL=http://user_service:8000
+      - PRODUCT_SERVICE_URL=http://product_service:8000
+      - JWT_SECRET=secret_key_drone_project
+    ports:
+      - "8003:8000"
+    networks:
+      - drone_network
+    depends_on:
+      shared_db:
+        condition: service_healthy
+
+  payment_service:
+    build: ./payment_service
+    container_name: payment_service
+    environment:
+      - DATABASE_URL=mssql+pyodbc://sa:Khangle123456@shared_db:1433/PaymentDB?driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes
+      - USER_SERVICE_URL=http://user_service:8000
+      - ORDER_SERVICE_URL=http://order_service:8000
+      - JWT_SECRET=secret_key_drone_project
+    ports:
+      - "8004:8000"
+    networks:
+      - drone_network
+    depends_on:
+      shared_db:
+        condition: service_healthy
+
+  # ==========================================
+  # API GATEWAY (ĐIỂM VÀO DUY NHẤT)
+  # ==========================================
+  api_gateway:
+    build: ./api_gateway
+    container_name: api_gateway
+    ports:
+      - "8000:8000"
+    environment:
+      - USER_SERVICE_URL=http://user_service:8000
+      - PRODUCT_SERVICE_URL=http://product_service:8000
+      - ORDER_SERVICE_URL=http://order_service:8000
+      - PAYMENT_SERVICE_URL=http://payment_service:8000
+    depends_on:
+      - user_service
+      - product_service
+      - order_service
+      - payment_service
+    networks:
+      - drone_network
+
+  # ==========================================
+  # FRONTEND (ReactJS)
+  # ==========================================
+  frontend:
+    build: ./frontend
+    container_name: frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+    networks:
+      - drone_network
+    depends_on:
+      - api_gateway
+    restart: unless-stopped
+
+# ==========================================
+# GLOBAL CONFIGS
+# ==========================================
+networks:
+  drone_network:
+    driver: bridge
+
+volumes:
+  mssql_data:
+  product_images:
