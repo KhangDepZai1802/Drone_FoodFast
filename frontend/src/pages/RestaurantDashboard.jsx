@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import { Package, DollarSign, Clock, CheckCircle, XCircle, Edit, Trash2, Upload, X } from 'lucide-react';
 import { productApi, orderApi, getImageUrl } from '../api';
+import DroneStatusTimeline from '../components/DroneStatusTimeline';
 
 const RestaurantDashboard = () => {
   const [activeTab, setActiveTab] = useState('products');

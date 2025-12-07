@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import { Users, Store, Package, Plane, ShieldCheck, Ban, CheckCircle, Trash2, X, Eye } from 'lucide-react';
 import { userApi, orderApi } from '../api';
-
+import DroneCard from '../components/DroneCard';
+import { useDrones } from '../contexts/DroneContext';
 const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState('overview');
   const [loading, setLoading] = useState(true);

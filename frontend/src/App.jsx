@@ -14,6 +14,8 @@ import OrdersPage from './pages/OrdersPage';
 import AdminDashboard from './pages/AdminDashboard';
 import RestaurantDashboard from './pages/RestaurantDashboard';
 import HomePage from './pages/HomePage';
+// --- IMPORT DRONE CONTEXT ---
+import { DroneProvider } from './contexts/DroneContext';
 // ==========================================
 // NAVBAR COMPONENT
 // ==========================================

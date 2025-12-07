@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import { Package, Clock, CheckCircle, XCircle, Plane, Ban } from 'lucide-react';
 import { orderApi } from '../api';
+import DroneMap from '../components/DroneMap';
 
 const OrdersPage = () => {
   const [orders, setOrders] = useState([]);
@@ -9,6 +10,8 @@ const OrdersPage = () => {
   const [drones, setDrones] = useState([]);
   const [showDroneModal, setShowDroneModal] = useState(false);
   const [selectedDrone, setSelectedDrone] = useState(null);
+  const [showMapModal, setShowMapModal] = useState(false);
+  const [selectedOrderForMap, setSelectedOrderForMap] = useState(null);
 
   useEffect(() => {
     fetchOrders();
