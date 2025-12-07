@@ -12,8 +12,9 @@ SERVICE_URLS = {
     "product": os.getenv("PRODUCT_SERVICE_URL", "http://product_service:8000"),
     "order": os.getenv("ORDER_SERVICE_URL", "http://order_service:8000"),
     "payment": os.getenv("PAYMENT_SERVICE_URL", "http://payment_service:8000"),
+    "delivery": os.getenv("DELIVERY_SERVICE_URL", "http://delivery_service:8000"),  # THÊM
+    "drone": os.getenv("DRONE_SERVICE_URL", "http://drone_service:8000"),          # THÊM
 }
-
 # ==========================================
 # APP SETUP
 # ==========================================
@@ -55,6 +56,11 @@ def get_service_url(path: str) -> str:
     - /api/products/* → Product Service
     - /api/orders/* → Order Service
     - /api/payments/* → Payment Service
+    - /api/tracking/* → Delivery Service (MỚI)
+    - /api/drones/* → Drone Service (MỚI)
+    
+    WEBSOCKET ROUTES:
+    - /ws/tracking/* → Delivery Service (MỚI)
     """
     
     # [CRITICAL] Special auth routes
@@ -75,6 +81,10 @@ def get_service_url(path: str) -> str:
         return SERVICE_URLS["order"]
     elif path.startswith("/api/payments"):
         return SERVICE_URLS["payment"]
+    elif path.startswith("/api/tracking"):  
+        return SERVICE_URLS["delivery"]
+    elif path.startswith("/api/drones"):    
+        return SERVICE_URLS["drone"]
     else:
         raise HTTPException(status_code=404, detail=f"No service found for path: {path}")
 
@@ -87,10 +97,17 @@ def strip_api_prefix(path: str) -> str:
     - /register → /register (giữ nguyên)
     - /api/users/restaurants → /restaurants
     - /api/products/static/images/x.jpg → /static/images/x.jpg
+    - /api/tracking/start/123 → /tracking/start/123 (MỚI)
+    - /api/drones/status/summary → /drones/status/summary (MỚI)
+    - /ws/tracking/123 → /ws/tracking/123 (MỚI)
     """
     
     # Special routes: keep as-is
     if path in ["/token", "/register", "/verify-token"]:
+        return path
+    
+    # WebSocket routes: keep as-is
+    if path.startswith("/ws/"):
         return path
     
     # Static files: strip /api/products
@@ -109,6 +126,12 @@ def strip_api_prefix(path: str) -> str:
         return stripped if stripped else "/"
     elif path.startswith("/api/payments"):
         stripped = path.replace("/api/payments", "", 1)
+        return stripped if stripped else "/"
+    elif path.startswith("/api/tracking"):  
+        stripped = path.replace("/api/tracking", "", 1)
+        return stripped if stripped else "/"
+    elif path.startswith("/api/drones"):    
+        stripped = path.replace("/api/drones", "", 1)
         return stripped if stripped else "/"
     
     return path
@@ -211,7 +234,12 @@ async def root():
                 "/api/users/*": "User Service",
                 "/api/products/*": "Product Service",
                 "/api/orders/*": "Order Service",
-                "/api/payments/*": "Payment Service"
+                "/api/payments/*": "Payment Service",
+                "/api/tracking/*": "Delivery Tracking Service",  # MỚI
+                "/api/drones/*": "Drone Management Service"      # MỚI
+            },
+            "websocket": {
+                "/ws/tracking/{order_id}": "Real-time delivery tracking"  # MỚI
             }
         }
     }

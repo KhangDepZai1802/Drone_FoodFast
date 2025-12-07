@@ -32,6 +32,8 @@ services:
       /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P Khangle123456 -C -Q 'IF NOT EXISTS(SELECT * FROM sys.databases WHERE name = \"ProductDB\") BEGIN CREATE DATABASE ProductDB; END' &&
       /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P Khangle123456 -C -Q 'IF NOT EXISTS(SELECT * FROM sys.databases WHERE name = \"OrderDB\") BEGIN CREATE DATABASE OrderDB; END' &&
       /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P Khangle123456 -C -Q 'IF NOT EXISTS(SELECT * FROM sys.databases WHERE name = \"PaymentDB\") BEGIN CREATE DATABASE PaymentDB; END' &&
+      /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P Khangle123456 -C -Q 'IF NOT EXISTS(SELECT * FROM sys.databases WHERE name = \"DeliveryDB\") BEGIN CREATE DATABASE DeliveryDB; END' &&
+      /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P Khangle123456 -C -Q 'IF NOT EXISTS(SELECT * FROM sys.databases WHERE name = \"DroneDB\") BEGIN CREATE DATABASE DroneDB; END' &&
       wait
       "
 
@@ -101,6 +103,44 @@ services:
       shared_db:
         condition: service_healthy
 
+# ==========================================
+  # DELIVERY TRACKING SERVICE
+  # ==========================================
+  delivery_service:
+    build: ./delivery_service
+    container_name: delivery_service
+    environment:
+      - DATABASE_URL=mssql+pyodbc://sa:Khangle123456@shared_db:1433/DeliveryDB?driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes
+      - USER_SERVICE_URL=http://user_service:8000
+      - ORDER_SERVICE_URL=http://order_service:8000
+      - JWT_SECRET=secret_key_drone_project
+    ports:
+      - "8005:8000"
+    networks:
+      - drone_network
+    depends_on:
+      shared_db:
+        condition: service_healthy
+
+  # ==========================================
+  # DRONE MANAGEMENT SERVICE
+  # ==========================================
+  drone_service:
+    build: ./drone_service
+    container_name: drone_service
+    environment:
+      - DATABASE_URL=mssql+pyodbc://sa:Khangle123456@shared_db:1433/DroneDB?driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes
+      - USER_SERVICE_URL=http://user_service:8000
+      - ORDER_SERVICE_URL=http://order_service:8000
+      - JWT_SECRET=secret_key_drone_project
+    ports:
+      - "8006:8000"
+    networks:
+      - drone_network
+    depends_on:
+      shared_db:
+        condition: service_healthy
+
   # ==========================================
   # API GATEWAY (ĐIỂM VÀO DUY NHẤT)
   # ==========================================
@@ -114,6 +154,8 @@ services:
       - PRODUCT_SERVICE_URL=http://product_service:8000
       - ORDER_SERVICE_URL=http://order_service:8000
       - PAYMENT_SERVICE_URL=http://payment_service:8000
+      - DELIVERY_SERVICE_URL=http://delivery_service:8000  
+      - DRONE_SERVICE_URL=http://drone_service:8000        
     depends_on:
       - user_service
       - product_service
